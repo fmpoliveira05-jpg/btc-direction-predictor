@@ -1,0 +1,517 @@
+{
+  "runs": [
+    {
+      "id": "run_0001",
+      "family": "logistic_regression",
+      "label": "Light - Logistic Regression",
+      "weight": "Light",
+      "params": {
+        "C": 0.1,
+        "class_weight": "balanced",
+        "solver": "lbfgs",
+        "max_iter": 2000
+      },
+      "feature_cols": [
+        "return_1d",
+        "return_lag1",
+        "return_lag2",
+        "return_lag3",
+        "return_lag4",
+        "return_lag5",
+        "return_5d",
+        "return_10d",
+        "ma5_ratio",
+        "ma10_ratio",
+        "ma20_ratio",
+        "ma50_ratio",
+        "ma_cross_5_20",
+        "vol_5d",
+        "vol_10d",
+        "vol_20d",
+        "rsi_14",
+        "macd",
+        "macd_hist",
+        "bb_position",
+        "hl_range",
+        "co_change",
+        "vol_change",
+        "vol_ma_ratio",
+        "dayofweek"
+      ],
+      "metrics": {
+        "accuracy": 0.5216867469879518,
+        "precision": 0.5162790697674419,
+        "recall": 0.5401459854014599,
+        "f1": 0.5279429250891795,
+        "roc_auc": 0.5111927948016655,
+        "confusion_matrix": [
+          [
+            211,
+            208
+          ],
+          [
+            189,
+            222
+          ]
+        ],
+        "cv_roc_auc": 0.5301018887229587,
+        "params": {
+          "C": 0.1,
+          "class_weight": "balanced",
+          "solver": "lbfgs",
+          "max_iter": 2000
+        },
+        "feature_cols": [
+          "return_1d",
+          "return_lag1",
+          "return_lag2",
+          "return_lag3",
+          "return_lag4",
+          "return_lag5",
+          "return_5d",
+          "return_10d",
+          "ma5_ratio",
+          "ma10_ratio",
+          "ma20_ratio",
+          "ma50_ratio",
+          "ma_cross_5_20",
+          "vol_5d",
+          "vol_10d",
+          "vol_20d",
+          "rsi_14",
+          "macd",
+          "macd_hist",
+          "bb_position",
+          "hl_range",
+          "co_change",
+          "vol_change",
+          "vol_ma_ratio",
+          "dayofweek"
+        ],
+        "backtest": {
+          "retorno_estrategia": 0.18681173641575,
+          "retorno_buy_and_hold": -0.11686601249410333
+        }
+      },
+      "meta": {
+        "n_train": 3317,
+        "n_test": 830,
+        "test_frac": 0.2,
+        "train_period": [
+          "2015-02-19",
+          "2024-03-19"
+        ],
+        "test_period": [
+          "2024-03-20",
+          "2026-06-27"
+        ]
+      },
+      "lc": {
+        "frac": [
+          0.2,
+          0.33,
+          0.47,
+          0.6,
+          0.73,
+          0.87,
+          1.0
+        ],
+        "n": [
+          663,
+          1105,
+          1547,
+          1990,
+          2432,
+          2874,
+          3317
+        ],
+        "train_auc": [
+          0.6250321584769745,
+          0.5851521549456185,
+          0.570388964529327,
+          0.5720848595848596,
+          0.5695443465267704,
+          0.5665208691444951,
+          0.5636794087498312
+        ],
+        "val_auc": [
+          0.503127014267547,
+          0.4927849299397825,
+          0.4867341428148355,
+          0.5147582298253865,
+          0.5118780086987325,
+          0.5157570161838231,
+          0.5111927948016655
+        ]
+      },
+      "train_time_s": 3.25,
+      "trained_at": "2026-07-10 15:08:40"
+    },
+    {
+      "id": "run_0002",
+      "family": "random_forest",
+      "label": "Intermediate - Random Forest",
+      "weight": "Intermediate",
+      "params": {
+        "n_estimators": 400,
+        "max_depth": 5,
+        "min_samples_leaf": 30,
+        "max_features": "sqrt",
+        "class_weight": "balanced"
+      },
+      "feature_cols": [
+        "return_1d",
+        "return_lag1",
+        "return_lag2",
+        "return_lag3",
+        "return_lag4",
+        "return_lag5",
+        "return_5d",
+        "return_10d",
+        "ma5_ratio",
+        "ma10_ratio",
+        "ma20_ratio",
+        "ma50_ratio",
+        "ma_cross_5_20",
+        "vol_5d",
+        "vol_10d",
+        "vol_20d",
+        "rsi_14",
+        "macd",
+        "macd_hist",
+        "bb_position",
+        "hl_range",
+        "co_change",
+        "vol_change",
+        "vol_ma_ratio",
+        "dayofweek"
+      ],
+      "metrics": {
+        "accuracy": 0.5024096385542168,
+        "precision": 0.4976190476190476,
+        "recall": 0.5085158150851582,
+        "f1": 0.5030084235860409,
+        "roc_auc": 0.4977556341422341,
+        "confusion_matrix": [
+          [
+            208,
+            211
+          ],
+          [
+            202,
+            209
+          ]
+        ],
+        "cv_roc_auc": 0.5413803012385108,
+        "params": {
+          "n_estimators": 400,
+          "max_depth": 5,
+          "min_samples_leaf": 30,
+          "max_features": "sqrt",
+          "class_weight": "balanced"
+        },
+        "feature_cols": [
+          "return_1d",
+          "return_lag1",
+          "return_lag2",
+          "return_lag3",
+          "return_lag4",
+          "return_lag5",
+          "return_5d",
+          "return_10d",
+          "ma5_ratio",
+          "ma10_ratio",
+          "ma20_ratio",
+          "ma50_ratio",
+          "ma_cross_5_20",
+          "vol_5d",
+          "vol_10d",
+          "vol_20d",
+          "rsi_14",
+          "macd",
+          "macd_hist",
+          "bb_position",
+          "hl_range",
+          "co_change",
+          "vol_change",
+          "vol_ma_ratio",
+          "dayofweek"
+        ],
+        "backtest": {
+          "retorno_estrategia": -0.036071455521066165,
+          "retorno_buy_and_hold": -0.11686601249410333
+        }
+      },
+      "meta": {
+        "n_train": 3317,
+        "n_test": 830,
+        "test_frac": 0.2,
+        "train_period": [
+          "2015-02-19",
+          "2024-03-19"
+        ],
+        "test_period": [
+          "2024-03-20",
+          "2026-06-27"
+        ]
+      },
+      "lc": {
+        "frac": [
+          0.2,
+          0.33,
+          0.47,
+          0.6,
+          0.73,
+          0.87,
+          1.0
+        ],
+        "n": [
+          663,
+          1105,
+          1547,
+          1990,
+          2432,
+          2874,
+          3317
+        ],
+        "train_auc": [
+          0.8027031496931163,
+          0.7901400664699654,
+          0.7747245693281215,
+          0.7499542124542125,
+          0.7460088398573407,
+          0.7271433816110342,
+          0.7168083872309224
+        ],
+        "val_auc": [
+          0.5107050154173126,
+          0.49242490229895064,
+          0.48988148122339714,
+          0.5003745448844137,
+          0.5040967661388197,
+          0.4993351102439477,
+          0.4977556341422341
+        ]
+      },
+      "train_time_s": 13.73,
+      "trained_at": "2026-07-10 15:10:15"
+    },
+    {
+      "id": "run_0003",
+      "family": "hist_gradient_boosting",
+      "label": "Heavy - HistGradientBoosting",
+      "weight": "Heavy",
+      "params": {
+        "learning_rate": 0.03,
+        "max_depth": 2,
+        "max_iter": 200,
+        "l2_regularization": 0.0,
+        "min_samples_leaf": 20
+      },
+      "feature_cols": [
+        "return_1d",
+        "return_lag1",
+        "return_lag2",
+        "return_lag3",
+        "return_lag4",
+        "return_lag5",
+        "return_5d",
+        "return_10d",
+        "ma5_ratio",
+        "ma10_ratio",
+        "ma20_ratio",
+        "ma50_ratio",
+        "ma_cross_5_20",
+        "vol_5d",
+        "vol_10d",
+        "vol_20d",
+        "rsi_14",
+        "macd",
+        "macd_hist",
+        "bb_position",
+        "hl_range",
+        "co_change",
+        "vol_change",
+        "vol_ma_ratio",
+        "dayofweek"
+      ],
+      "metrics": {
+        "accuracy": 0.5144578313253012,
+        "precision": 0.5073529411764706,
+        "recall": 0.6715328467153284,
+        "f1": 0.5780104712041885,
+        "roc_auc": 0.5120841535575957,
+        "confusion_matrix": [
+          [
+            151,
+            268
+          ],
+          [
+            135,
+            276
+          ]
+        ],
+        "cv_roc_auc": 0.5391333554427415,
+        "params": {
+          "learning_rate": 0.03,
+          "max_depth": 2,
+          "max_iter": 200,
+          "l2_regularization": 0.0,
+          "min_samples_leaf": 20
+        },
+        "feature_cols": [
+          "return_1d",
+          "return_lag1",
+          "return_lag2",
+          "return_lag3",
+          "return_lag4",
+          "return_lag5",
+          "return_5d",
+          "return_10d",
+          "ma5_ratio",
+          "ma10_ratio",
+          "ma20_ratio",
+          "ma50_ratio",
+          "ma_cross_5_20",
+          "vol_5d",
+          "vol_10d",
+          "vol_20d",
+          "rsi_14",
+          "macd",
+          "macd_hist",
+          "bb_position",
+          "hl_range",
+          "co_change",
+          "vol_change",
+          "vol_ma_ratio",
+          "dayofweek"
+        ],
+        "backtest": {
+          "retorno_estrategia": 0.19869968590067089,
+          "retorno_buy_and_hold": -0.11686601249410333
+        }
+      },
+      "meta": {
+        "n_train": 3317,
+        "n_test": 830,
+        "test_frac": 0.2,
+        "train_period": [
+          "2015-02-19",
+          "2024-03-19"
+        ],
+        "test_period": [
+          "2024-03-20",
+          "2026-06-27"
+        ]
+      },
+      "lc": {
+        "frac": [
+          0.2,
+          0.33,
+          0.47,
+          0.6,
+          0.73,
+          0.87,
+          1.0
+        ],
+        "n": [
+          663,
+          1105,
+          1547,
+          1990,
+          2432,
+          2874,
+          3317
+        ],
+        "train_auc": [
+          0.8539729501267963,
+          0.7873061015165542,
+          0.734850046116267,
+          0.7232112332112333,
+          0.7138597211164068,
+          0.6882081492629486,
+          0.6799035862416145
+        ],
+        "val_auc": [
+          0.5109285809684744,
+          0.4803726866772352,
+          0.47571845838486954,
+          0.49594678559192606,
+          0.5002380827947436,
+          0.5033970349981709,
+          0.5120841535575957
+        ]
+      },
+      "train_time_s": 5.04,
+      "trained_at": "2026-07-10 15:10:40"
+    }
+  ],
+  "baselines": {
+    "baseline_maioria": {
+      "accuracy": 0.4951807228915663,
+      "precision": 0.4951807228915663,
+      "recall": 1.0,
+      "f1": 0.6623690572119258,
+      "roc_auc": 0.5,
+      "confusion_matrix": [
+        [
+          0,
+          419
+        ],
+        [
+          0,
+          411
+        ]
+      ]
+    },
+    "baseline_persistencia": {
+      "accuracy": 0.4939759036144578,
+      "precision": 0.48905109489051096,
+      "recall": 0.48905109489051096,
+      "f1": 0.48905109489051096,
+      "roc_auc": 0.4939288887340383,
+      "confusion_matrix": [
+        [
+          209,
+          210
+        ],
+        [
+          210,
+          201
+        ]
+      ]
+    }
+  },
+  "dataset": {
+    "n_total": 4147,
+    "last_date": "2026-06-27",
+    "source": "trained in app"
+  },
+  "feature_cols": [
+    "return_1d",
+    "return_lag1",
+    "return_lag2",
+    "return_lag3",
+    "return_lag4",
+    "return_lag5",
+    "return_5d",
+    "return_10d",
+    "ma5_ratio",
+    "ma10_ratio",
+    "ma20_ratio",
+    "ma50_ratio",
+    "ma_cross_5_20",
+    "vol_5d",
+    "vol_10d",
+    "vol_20d",
+    "rsi_14",
+    "macd",
+    "macd_hist",
+    "bb_position",
+    "hl_range",
+    "co_change",
+    "vol_change",
+    "vol_ma_ratio",
+    "dayofweek"
+  ]
+}
