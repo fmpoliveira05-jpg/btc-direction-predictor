@@ -76,6 +76,12 @@ A interface está em inglês e organiza-se em cinco separadores, que devem ser u
 
 A aplicação não traz modelos pré-treinados: cada utilizador treina os seus, o que também evita problemas de compatibilidade entre versões do scikit-learn.
 
+| Treino | Previsão |
+|---|---|
+| ![Resultado de um treino com a curva de aprendizagem](docs/screenshots/treino.png) | ![Separador de previsão com o preço dos últimos 180 dias](docs/screenshots/previsao.png) |
+
+*Capturas de uma execução de exemplo; os valores mudam com os dados e os hiperparâmetros escolhidos.*
+
 ### Linha de comandos
 
 ```bash
