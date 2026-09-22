@@ -24,6 +24,7 @@ from sklearn.metrics import (accuracy_score, precision_score, recall_score,
 from features import feature_columns
 
 RANDOM_STATE = 42
+CV_SPLITS = 5
 MODEL_NAMES = ["logistic_regression", "random_forest", "hist_gradient_boosting"]
 
 # Metadados de cada familia (rotulo, "peso" e descricao para a interface)
@@ -98,14 +99,28 @@ def make_model(name, params=None):
 # ----------------------------------------------------------------------
 # Avaliacao
 # ----------------------------------------------------------------------
+def time_series_cv():
+    """Validacao cruzada walk-forward. O intervalo (gap) de 1 dia entre treino e validacao
+    impede que o alvo do ultimo dia de treino (que depende do fecho do dia seguinte)
+    use informacao do primeiro dia de validacao."""
+    return TimeSeriesSplit(n_splits=CV_SPLITS, gap=1)
+
+
+def _roc_auc(y_true, y_proba):
+    """ROC-AUC que devolve NaN (em vez de rebentar) quando so existe uma classe."""
+    if len(np.unique(y_true)) < 2:
+        return float("nan")
+    return float(roc_auc_score(y_true, y_proba))
+
+
 def _metrics(y_true, y_pred, y_proba):
     return {
         "accuracy": float(accuracy_score(y_true, y_pred)),
         "precision": float(precision_score(y_true, y_pred, zero_division=0)),
         "recall": float(recall_score(y_true, y_pred, zero_division=0)),
         "f1": float(f1_score(y_true, y_pred, zero_division=0)),
-        "roc_auc": float(roc_auc_score(y_true, y_proba)),
-        "confusion_matrix": confusion_matrix(y_true, y_pred).tolist(),
+        "roc_auc": _roc_auc(y_true, y_proba),
+        "confusion_matrix": confusion_matrix(y_true, y_pred, labels=[0, 1]).tolist(),
     }
 
 
@@ -152,7 +167,7 @@ def train_single(name, feats, params, test_frac=0.20, do_cv=True, cols=None):
         try:
             m["cv_roc_auc"] = float(np.mean(cross_val_score(
                 make_model(name, params), Xtr, ytr,
-                cv=TimeSeriesSplit(n_splits=5), scoring="roc_auc", n_jobs=-1)))
+                cv=time_series_cv(), scoring="roc_auc", n_jobs=-1)))
         except Exception:
             pass
     m["params"] = params
@@ -161,36 +176,10 @@ def train_single(name, feats, params, test_frac=0.20, do_cv=True, cols=None):
     return model, m, _period_meta(feats, cut, test_frac)
 
 
-def automl(feats, test_frac=0.20, families=None, n_configs=6, seed=42, progress=None):
-    """Procura aleatoria de configuracoes por familia. Devolve melhor + leaderboard."""
-    import random
-    families = families or list(MODEL_NAMES)
-    rnd = random.Random(seed)
-    cols, Xtr, Xte, ytr, yte, cut = split_xy(feats, test_frac, cols)
-    tscv = TimeSeriesSplit(n_splits=5)
-    leaderboard = []
-    total = max(1, len(families) * n_configs)
-    done = 0
-    for fam in families:
-        for _ in range(n_configs):
-            params = _space(fam, rnd)
-            try:
-                cv = float(np.mean(cross_val_score(make_model(fam, params), Xtr, ytr,
-                                                   cv=tscv, scoring="roc_auc", n_jobs=-1)))
-            except Exception:
-                cv = float("nan")
-            leaderboard.append({"familia": fam, "label": MODEL_REGISTRY[fam]["weight"],
-                                "cv_roc_auc": cv, "params": params})
-            done += 1
-            if progress:
-                progress(done / total, fam)
-    valid = [x for x in leaderboard if x["cv_roc_auc"] == x["cv_roc_auc"]]
-    valid.sort(key=lambda d: d["cv_roc_auc"], reverse=True)
-    best = valid[0]
-    model, m, meta = train_single(best["familia"], feats, best["params"], test_frac,
-                                  do_cv=False, cols=cols)
-    m["cv_roc_auc"] = best["cv_roc_auc"]
-    return best["familia"], model, m, meta, valid
+def automl(feats, test_frac=0.20, families=None, n_configs=6, seed=42, progress=None, cols=None):
+    """Procura aleatoria de configuracoes por familia (versao sem interrupcao).
+    A versao anterior tinha codigo duplicado e usava `cols` sem o receber (NameError)."""
+    return automl_stoppable(feats, test_frac, families, n_configs, seed, progress, None, cols)
 
 
 # ----------------------------------------------------------------------
@@ -214,29 +203,6 @@ def load_registry(models_dir):
     return default
 
 
-def save_trained(models_dir, name, model, metrics, meta, feats,
-                 dataset_info=None, baselines=None):
-    os.makedirs(models_dir, exist_ok=True)
-    joblib.dump(model, os.path.join(models_dir, name + ".joblib"))
-    reg = load_registry(models_dir)
-    reg["feature_cols"] = feature_columns(feats)
-    reg["models"][name] = {
-        "label": MODEL_REGISTRY[name]["label"], "weight": MODEL_REGISTRY[name]["weight"],
-        "metrics": metrics, "meta": meta,
-        "trained_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-    if baselines is not None:
-        reg["baselines"] = baselines
-    if dataset_info is not None:
-        reg["dataset"] = dataset_info
-    with open(_reg_path(models_dir), "w") as f:
-        json.dump(reg, f, indent=2, default=str)
-    return reg
-
-
-def load_model(models_dir, name):
-    return joblib.load(os.path.join(models_dir, name + ".joblib"))
-
-
 # ----------------------------------------------------------------------
 # Treino completo (CLI) - usado por train_models.py
 # ----------------------------------------------------------------------
@@ -251,7 +217,7 @@ GRIDS = {
 
 def train_and_eval(feats, test_frac=0.20, quick=False):
     cols, Xtr, Xte, ytr, yte, cut = split_xy(feats, test_frac)
-    tscv = TimeSeriesSplit(n_splits=5)
+    tscv = time_series_cv()
     results = compute_baselines(feats, test_frac)
     fitted = {}
     base_estimators = {"logistic_regression": Pipeline([("scaler", StandardScaler()),
@@ -271,13 +237,15 @@ def train_and_eval(feats, test_frac=0.20, quick=False):
         m["best_params"] = gs.best_params_
         m["backtest"] = _backtest(feats["Close"], yp, Xte.index)
         results[name], fitted[name] = m, model
-    best = max(MODEL_NAMES, key=lambda n: (round(results[n]["roc_auc"], 4),
-                                           round(results[n]["f1"], 4)))
+    # O melhor modelo e escolhido pela validacao cruzada no TREINO. Escolher pelo resultado no
+    # conjunto de teste (como antes) torna a avaliacao final otimista, porque o teste passa a
+    # participar na selecao.
+    best = max(MODEL_NAMES, key=lambda n: results[n]["cv_roc_auc"])
     meta = {"feature_cols": cols, "best_model": best, "test_frac": test_frac,
             "n_train": len(Xtr), "n_test": len(Xte), "n_total": len(feats),
             "train_period": [str(feats.index[0].date()), str(feats.index[cut - 1].date())],
             "test_period": [str(feats.index[cut].date()), str(feats.index[-1].date())],
-            "target_pos_rate": float(ytr.mean()), "results": results}
+            "target_pos_rate": float(ytr.mean()), "selection": "cv_roc_auc", "results": results}
     return fitted, meta
 
 
@@ -307,8 +275,8 @@ def learning_curve_temporal(name, feats, params, test_frac=0.20, n_points=7,
         k = max(60, int(len(Xtr) * fr))
         mdl = make_model(name, params)
         mdl.fit(Xtr.iloc[:k], ytr.iloc[:k])
-        tr = float(roc_auc_score(ytr.iloc[:k], mdl.predict_proba(Xtr.iloc[:k])[:, 1]))
-        va = float(roc_auc_score(yte, mdl.predict_proba(Xte)[:, 1]))
+        tr = _roc_auc(ytr.iloc[:k], mdl.predict_proba(Xtr.iloc[:k])[:, 1])
+        va = _roc_auc(yte, mdl.predict_proba(Xte)[:, 1])
         out["frac"].append(round(float(fr), 2))
         out["n"].append(int(k))
         out["train_auc"].append(tr)
@@ -327,7 +295,7 @@ def automl_stoppable(feats, test_frac=0.20, families=None, n_configs=6, seed=42,
     families = families or list(MODEL_NAMES)
     rnd = random.Random(seed)
     cols, Xtr, Xte, ytr, yte, cut = split_xy(feats, test_frac, cols)
-    tscv = TimeSeriesSplit(n_splits=5)
+    tscv = time_series_cv()
     leaderboard = []
     total = max(1, len(families) * n_configs)
     done = 0
@@ -347,6 +315,8 @@ def automl_stoppable(feats, test_frac=0.20, families=None, n_configs=6, seed=42,
             if progress:
                 progress(done / total, fam)
     valid = [x for x in leaderboard if x["cv_roc_auc"] == x["cv_roc_auc"]]
+    if not valid:
+        raise RuntimeError("Nenhuma configuracao do AutoML conseguiu ser avaliada.")
     valid.sort(key=lambda d: d["cv_roc_auc"], reverse=True)
     best = valid[0]
     model, m, meta = train_single(best["familia"], feats, best["params"], test_frac,
@@ -361,7 +331,9 @@ def list_runs(models_dir):
 
 
 def _next_run_id(reg):
-    return "run_%04d" % (len(reg.get("runs", [])) + 1)
+    """Proximo identificador livre (robusto mesmo que versoes antigas tenham sido apagadas)."""
+    used = [int(r["id"].split("_")[1]) for r in reg.get("runs", []) if r.get("id", "").startswith("run_")]
+    return "run_%04d" % (max(used, default=0) + 1)
 
 
 def save_run(models_dir, family, model, metrics, meta, feats, train_time,

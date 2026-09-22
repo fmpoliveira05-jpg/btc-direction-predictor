@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Modelos treinados na aplicação (cada utilizador treina os seus)
+models/*.joblib
+
+# Dados grandes / pessoais
+data/btcusd_1-min_data.csv
+app/history.csv
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini

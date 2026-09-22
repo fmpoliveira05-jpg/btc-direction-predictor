@@ -26,10 +26,11 @@
     "vol_ma_ratio",
     "dayofweek"
   ],
-  "best_model": "hist_gradient_boosting",
+  "best_model": "random_forest",
   "test_frac": 0.2,
   "n_train": 3317,
   "n_test": 830,
+  "n_total": 4147,
   "train_period": [
     "2015-02-19",
     "2024-03-19"
@@ -38,7 +39,8 @@
     "2024-03-20",
     "2026-06-27"
   ],
-  "target_pos_rate": 0.5223052809259706,
+  "target_pos_rate": 0.5290925535122099,
+  "selection": "cv_roc_auc",
   "results": {
     "baseline_maioria": {
       "accuracy": 0.4951807228915663,
@@ -90,7 +92,7 @@
           223
         ]
       ],
-      "cv_roc_auc": 0.5337708356314173,
+      "cv_roc_auc": 0.5338572004165785,
       "best_params": {
         "clf__C": 0.01
       },
@@ -104,7 +106,7 @@
       "precision": 0.4976851851851852,
       "recall": 0.5231143552311436,
       "f1": 0.5100830367734283,
-      "roc_auc": 0.49952093096179645,
+      "roc_auc": 0.49951512406436366,
       "confusion_matrix": [
         [
           202,
@@ -115,7 +117,7 @@
           215
         ]
       ],
-      "cv_roc_auc": 0.5419193192119639,
+      "cv_roc_auc": 0.5416089391613975,
       "best_params": {
         "max_depth": 5,
         "min_samples_leaf": 30,
@@ -142,7 +144,7 @@
           276
         ]
       ],
-      "cv_roc_auc": 0.534892105634935,
+      "cv_roc_auc": 0.5366436574893568,
       "best_params": {
         "l2_regularization": 0.0,
         "learning_rate": 0.03,
