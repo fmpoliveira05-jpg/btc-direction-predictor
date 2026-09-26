@@ -17,7 +17,7 @@ Escolher um *dataset* de um problema supervisionado, analisá-lo e prepará-lo, 
 - **Origem:** [Bitcoin Historical Data](https://www.kaggle.com/datasets/mczielinski/bitcoin-historical-data) (Kaggle), com preços ao minuto desde 2012 (~7,6 milhões de linhas, ~386 MB).
 - **Preparação:** reamostragem para velas diárias, remoção do período anterior a 2015 (pouca liquidez, preços "congelados") e preenchimento dos dias em falta.
 - **Features (25):** retornos e retornos desfasados, rácios preço/média móvel, volatilidade, RSI, MACD, posição nas bandas de Bollinger, amplitude diária, variação de volume e dia da semana. Todas usam apenas informação disponível até ao fim do dia.
-- **Alvo:** `1` se o fecho de amanhã for superior ao de hoje, `0` caso contrário (52,9 % de dias "sobe" no treino, por isso as classes estão praticamente equilibradas).
+- **Alvo:** `1` se o fecho de amanhã for superior ao de hoje, `0` caso contrário (52,8 % de dias "sobe" no treino, por isso as classes estão praticamente equilibradas).
 
 Os CSV diários já processados estão em `data/`; o ficheiro ao minuto não está incluído por causa do tamanho. O *dataset* do Kaggle é atualizado todos os dias e é público: a aplicação (separador Data) ou `python src/data_pipeline.py --kaggle` descarregam a versão mais recente sem conta. O último dia do ficheiro ainda está incompleto quando o Kaggle o atualiza, por isso é descartado: uma vela parcial daria um fecho e um volume errados.
 
@@ -25,7 +25,7 @@ Os CSV diários já processados estão em `data/`; o ficheiro ao minuto não est
 
 Em séries temporais financeiras é muito fácil obter resultados enganadoramente bons. Por isso:
 
-1. **Divisão temporal**: treino de 2015-02 a 2024-03 (3317 dias) e teste de 2024-03 a 2026-06 (830 dias). Nunca há baralhamento.
+1. **Divisão temporal**: treino de 2015-02 a 2024-05 (3388 dias) e teste de 2024-05 a 2026-09 (848 dias), com os dados até 25/09/2026. Nunca há baralhamento.
 2. **Validação cruzada *walk-forward*** (`TimeSeriesSplit`, 5 partições, com um dia de intervalo entre treino e validação, porque o alvo de um dia depende do fecho do dia seguinte).
 3. **Pipelines do scikit-learn**: a normalização é ajustada apenas nos dados de treino de cada partição.
 4. **Seleção pelo treino, avaliação pelo teste**: os hiperparâmetros e o melhor modelo são escolhidos pela validação cruzada; o conjunto de teste só é usado uma vez, no fim.
@@ -40,18 +40,20 @@ Em séries temporais financeiras é muito fácil obter resultados enganadorament
 
 ## Resultados
 
-Resultados de `python src/train_models.py` (afinação com *grid search*):
+Resultados de `python src/train_models.py` (afinação com *grid search*), com os dados até 25/09/2026:
 
 | Modelo | ROC-AUC (validação cruzada) | ROC-AUC (teste) | Exatidão (teste) | Backtest (teste) |
 |---|---|---|---|---|
-| Classe maioritária | – | 0,500 | 49,5 % | – |
-| Persistência | – | 0,494 | 49,4 % | – |
-| Regressão logística | 0,534 | 0,511 | 51,2 % | −0,8 % |
-| Random Forest | **0,542** | 0,500 | 50,2 % | +5,2 % |
-| HistGradientBoosting | 0,537 | 0,511 | 51,7 % | +34,2 % |
-| *Buy & hold* | | | | −11,7 % |
+| Classe maioritária | – | 0,500 | 49,9 % | – |
+| Persistência | – | 0,499 | 49,9 % | – |
+| Regressão logística | 0,537 | 0,502 | 50,7 % | +16,0 % |
+| Random Forest | **0,543** | 0,492 | 50,0 % | +26,8 % |
+| HistGradientBoosting | 0,539 | 0,498 | 50,4 % | +20,4 % |
+| *Buy & hold* | | | | +23,5 % |
 
-**A leitura honesta destes números é que nenhum modelo prevê a direção diária do Bitcoin de forma útil.** Os três ficam praticamente ao nível do acaso no conjunto de teste, e o pequeno ganho visto na validação cruzada (0,53–0,54) não se mantém no período mais recente, o que é consistente com mercados muito eficientes e com uma relação entre features e alvo que muda ao longo do tempo. O bom resultado do backtest do HistGradientBoosting parece dever-se sobretudo a ter ficado de fora em algumas quedas grandes do período de teste (ver gráfico abaixo) e não deve ser lido como uma estratégia rentável.
+**A leitura honesta destes números é que nenhum modelo prevê a direção diária do Bitcoin de forma útil.** Os três ficam ao nível do acaso no conjunto de teste (ROC-AUC entre 0,49 e 0,50), e o pequeno ganho visto na validação cruzada (0,53–0,54) não se mantém no período mais recente, o que é consistente com mercados muito eficientes e com uma relação entre features e alvo que muda ao longo do tempo. Nenhuma estratégia bate o *buy & hold* de forma convincente: a da Random Forest fica ligeiramente acima, mas com um ROC-AUC abaixo de 0,5, o que aponta para sorte na temporização e não para capacidade de previsão.
+
+A instabilidade vê-se bem ao comparar com a versão anterior destes resultados, com os dados até junho de 2026: nessa altura o backtest do HistGradientBoosting dava +34,2 % contra −11,7 % do *buy & hold*. Três meses de dados depois, essa vantagem desapareceu.
 
 Mais do que "acertar no Bitcoin", o objetivo do projeto é demonstrar um processo de avaliação que não se engana a si próprio: baselines, validação temporal, seleção sem tocar no teste e interpretação crítica dos resultados.
 
@@ -59,7 +61,7 @@ Mais do que "acertar no Bitcoin", o objetivo do projeto é demonstrar um process
 |---|---|
 | ![Comparação](docs/figuras/fig_compare.png) | ![Backtest](docs/figuras/fig5_backtest.png) |
 
-*(Gráficos produzidos no relatório original, com os hiperparâmetros por omissão.)*
+*(Gráficos produzidos no relatório original, com os hiperparâmetros por omissão e um período de teste anterior; os números da tabela acima são os atuais.)*
 
 ## A aplicação
 
