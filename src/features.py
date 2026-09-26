@@ -14,7 +14,15 @@ OHLCV = ["Open", "High", "Low", "Close", "Volume"]
 
 
 def resample_daily(minute_df: pd.DataFrame) -> pd.DataFrame:
-    """1-min OHLCV -> velas diarias. Espera indice datetime (UTC)."""
+    """1-min OHLCV -> velas diarias. Espera indice datetime (UTC).
+
+    O Kaggle atualiza o ficheiro uma vez por dia, a meio da manha (UTC): o ultimo dia
+    costuma estar incompleto. Uma vela parcial teria o fecho, o maximo, o minimo e o volume
+    errados, e a previsao feita a partir dela tambem; por isso e descartada."""
+    minute_df = minute_df.sort_index()
+    ultimo = minute_df.index.max()
+    if pd.notna(ultimo) and ultimo < ultimo.floor("1D") + pd.Timedelta(hours=23, minutes=59):
+        minute_df = minute_df[minute_df.index < ultimo.floor("1D")]
     daily = minute_df.resample("1D").agg(
         Open=("Open", "first"), High=("High", "max"), Low=("Low", "min"),
         Close=("Close", "last"), Volume=("Volume", "sum"))

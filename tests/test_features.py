@@ -65,3 +65,18 @@ def test_periodo_iliquido_anterior_a_2015_e_removido():
     minute = pd.DataFrame({c: 1.0 for c in ["Open", "High", "Low", "Close", "Volume"]}, index=idx)
     daily = resample_daily(minute)
     assert daily.index.min() == pd.Timestamp("2015-01-01", tz="UTC")
+
+
+def test_resample_descarta_o_ultimo_dia_incompleto():
+    """O ficheiro do Kaggle é atualizado a meio do dia: a vela parcial não pode entrar."""
+    idx = pd.date_range("2024-01-01", "2024-01-03 10:00", freq="1min", tz="UTC")
+    minuto = pd.DataFrame({"Open": 1.0, "High": 2.0, "Low": 0.5, "Close": 1.5, "Volume": 1.0}, index=idx)
+    diario = resample_daily(minuto)
+    assert list(diario.index.strftime("%Y-%m-%d")) == ["2024-01-01", "2024-01-02"]
+    assert diario["Volume"].iloc[-1] == 1440
+
+
+def test_resample_mantem_o_ultimo_dia_completo():
+    idx = pd.date_range("2024-01-01", "2024-01-02 23:59", freq="1min", tz="UTC")
+    minuto = pd.DataFrame({"Open": 1.0, "High": 2.0, "Low": 0.5, "Close": 1.5, "Volume": 1.0}, index=idx)
+    assert resample_daily(minuto).index[-1] == pd.Timestamp("2024-01-02", tz="UTC")

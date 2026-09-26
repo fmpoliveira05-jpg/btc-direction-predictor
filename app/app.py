@@ -90,12 +90,8 @@ def read_history():
 
 
 def process_raw_to_data(csv_path):
-    df = pd.read_csv(csv_path, dtype={"Timestamp": "int64", "Open": "float32",
-                    "High": "float32", "Low": "float32", "Close": "float32",
-                    "Volume": "float32"})
-    df["datetime"] = pd.to_datetime(df["Timestamp"], unit="s", utc=True)
-    df = df.set_index("datetime").sort_index()
-    daily = resample_daily(df)
+    from data_pipeline import load_minute_data  # só existe na versão local (não na demonstração)
+    daily = resample_daily(load_minute_data(csv_path))
     feats = build_features(daily, with_target=True)
     daily.to_csv(OHLCV_CSV)
     feats.to_csv(FEATS_CSV)
@@ -114,18 +110,6 @@ def append_daily_rows(new_df):
     combined.to_csv(OHLCV_CSV)
     feats.to_csv(FEATS_CSV)
     return len(combined), len(feats)
-
-
-def find_minute_csv(folder):
-    best, best_size = None, -1
-    for root, _, files in os.walk(folder):
-        for f in files:
-            if f.lower().endswith(".csv"):
-                p = os.path.join(root, f)
-                s = os.path.getsize(p)
-                if s > best_size:
-                    best, best_size = p, s
-    return best
 
 
 # ----------------------------------------------------------------------
@@ -481,34 +465,28 @@ with tab_data:
         st.info("In the web demo the processed daily dataset is already loaded. Downloading from "
                 "Kaggle only works when the app runs locally (`streamlit run app/app.py`).")
     else:
-        with st.expander("How to get a Kaggle API token"):
+        st.subheader("Download via Kaggle (kagglehub)")
+        st.caption("The dataset is public and updated every day, so no account is needed. "
+                   "The last, still incomplete day of the file is discarded.")
+        with st.expander("Kaggle API token (only if Kaggle asks for authentication)"):
             st.markdown(
                 "1. Go to **kaggle.com**, profile picture, **Settings**.\n"
                 "2. **API** section, **Create New Token** (format `KGAT_...`).\n"
-                "3. Paste the token below. It is never written to disk.")
-
-        st.subheader("Download via Kaggle (kagglehub)")
-        token = st.text_input("KAGGLE_API_TOKEN", type="password", placeholder="KGAT_...")
-        st.caption("The token is used only in memory and is never stored.")
+                "3. Paste the token below. It is used only in memory and never written to disk.")
+            token = st.text_input("KAGGLE_API_TOKEN", type="password", placeholder="KGAT_...")
         if st.button("Download latest dataset version", type="primary"):
-            if not token.strip():
-                st.error("Provide the Kaggle API token first.")
-            else:
-                try:
-                    with st.spinner("Downloading from Kaggle and processing (may take 1-2 min)..."):
+            try:
+                with st.spinner("Downloading from Kaggle and processing (may take 1-2 min)..."):
+                    if token.strip():
                         os.environ["KAGGLE_API_TOKEN"] = token.strip()
-                        import kagglehub
-                        path = kagglehub.dataset_download(KAGGLE_DS)
-                        csv = find_minute_csv(path)
-                        if not csv:
-                            raise FileNotFoundError("CSV not found in the download.")
-                        nd, nf = process_raw_to_data(csv)
-                        st.cache_data.clear()
-                    st.success("Done: %d days / %d samples." % (nd, nf))
-                except ImportError:
-                    st.error("kagglehub is missing. Install it with: pip install kagglehub")
-                except Exception as e:
-                    st.error("Download failed: %s" % e)
+                    from data_pipeline import download_latest
+                    nd, nf = process_raw_to_data(download_latest())
+                    st.cache_data.clear()
+                st.success("Done: %d days / %d samples." % (nd, nf))
+            except ImportError:
+                st.error("kagglehub is missing. Install it with: pip install kagglehub")
+            except Exception as e:
+                st.error("Download failed: %s" % e)
 
         with st.expander("Reprocess a local file instead (offline)"):
             if st.button("Reprocess local dataset"):

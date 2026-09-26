@@ -13,6 +13,10 @@ para que os dados de treino e os de previsão sejam construídos exatamente da m
 
 Uso:
     python src/data_pipeline.py [caminho/para/btcusd_1-min_data.csv]
+    python src/data_pipeline.py --kaggle      # descarrega a versão mais recente do Kaggle
+
+O dataset é público e é atualizado todos os dias; o kagglehub descarrega-o sem conta. Se o
+Kaggle pedir autenticação, defina KAGGLE_API_TOKEN (Kaggle > Settings > API > Create New Token).
 """
 import os
 import sys
@@ -24,16 +28,41 @@ from features import build_features, feature_columns, resample_daily
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.environ.get("OUT_DIR", os.path.join(BASE, "data"))
 DEFAULT_RAW_CSV = os.environ.get("RAW_CSV", os.path.join(DATA_DIR, "btcusd_1-min_data.csv"))
+KAGGLE_DS = "mczielinski/bitcoin-historical-data"
+
+
+def find_minute_csv(folder: str):
+    """O maior CSV da pasta descarregada (é o ficheiro ao minuto)."""
+    best, best_size = None, -1
+    for root, _, files in os.walk(folder):
+        for f in files:
+            if f.lower().endswith(".csv"):
+                p = os.path.join(root, f)
+                size = os.path.getsize(p)
+                if size > best_size:
+                    best, best_size = p, size
+    return best
+
+
+def download_latest() -> str:
+    """Descarrega do Kaggle a versão mais recente e devolve o caminho do CSV ao minuto."""
+    import kagglehub
+    folder = kagglehub.dataset_download(KAGGLE_DS, force_download=True)
+    csv = find_minute_csv(folder)
+    if not csv:
+        raise FileNotFoundError("O download do Kaggle não trouxe nenhum CSV.")
+    return csv
 
 
 def load_minute_data(path: str) -> pd.DataFrame:
     """Lê o CSV ao minuto do Kaggle e indexa-o por data/hora UTC."""
+    # O Timestamp é lido como float: algumas versões do ficheiro escrevem-no como "1325317920.0".
     df = pd.read_csv(
         path,
-        dtype={"Timestamp": "int64", "Open": "float32", "High": "float32",
+        dtype={"Timestamp": "float64", "Open": "float32", "High": "float32",
                "Low": "float32", "Close": "float32", "Volume": "float32"},
     )
-    df["datetime"] = pd.to_datetime(df["Timestamp"], unit="s", utc=True)
+    df["datetime"] = pd.to_datetime(df["Timestamp"].astype("int64"), unit="s", utc=True)
     return df.set_index("datetime").sort_index()
 
 
@@ -63,4 +92,8 @@ def main(raw_csv: str = DEFAULT_RAW_CSV) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else DEFAULT_RAW_CSV)
+    if len(sys.argv) > 1 and sys.argv[1] == "--kaggle":
+        print("[0] A descarregar a versão mais recente do Kaggle ...")
+        main(download_latest())
+    else:
+        main(sys.argv[1] if len(sys.argv) > 1 else DEFAULT_RAW_CSV)
