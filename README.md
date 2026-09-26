@@ -6,6 +6,8 @@ Trabalho prático de **Inteligência Artificial** (3.º ano da Licenciatura em E
 
 [![CI](https://github.com/fmpoliveira05-jpg/btc-direction-predictor/actions/workflows/ci.yml/badge.svg)](https://github.com/fmpoliveira05-jpg/btc-direction-predictor/actions/workflows/ci.yml)
 
+**Experimentar sem instalar nada:** [demonstração web](https://fmpoliveira05-jpg.github.io/btc-direction-predictor/). A aplicação corre toda no browser (a primeira abertura demora 20 a 40 segundos a carregar o Python) e já traz os três modelos treinados.
+
 ## O enunciado
 
 Escolher um *dataset* de um problema supervisionado, analisá-lo e prepará-lo, treinar pelo menos três modelos, avaliá-los de forma fundamentada e construir uma aplicação que permita a um utilizador obter previsões. Eram valorizados: escolher o modelo, ver as métricas de cada um, consultar o histórico de previsões e acrescentar dados para treinar uma nova versão. Todos estes extras estão implementados.
@@ -74,7 +76,16 @@ A interface está em inglês e organiza-se em cinco separadores, que devem ser u
 4. **Comparison** – características das três famílias antes do treino e, depois, uma tabela com hiperparâmetros e métricas de todas as versões, com o melhor e o pior valor de cada linha assinalados.
 5. **History** – previsões feitas, com a indicação de acerto quando o resultado real já é conhecido e a taxa de acerto acumulada.
 
-A aplicação não traz modelos pré-treinados: cada utilizador treina os seus, o que também evita problemas de compatibilidade entre versões do scikit-learn.
+Localmente, a aplicação não traz modelos pré-treinados: cada utilizador treina os seus, o que também evita problemas de compatibilidade entre versões do scikit-learn.
+
+### Demonstração no browser
+
+A [demonstração web](https://fmpoliveira05-jpg.github.io/btc-direction-predictor/) é a mesma aplicação a correr no browser com o [Stlite](https://github.com/whitphx/stlite) (Streamlit sobre Pyodide, ou seja, Python compilado para WebAssembly). Não há servidor: o GitHub Pages só entrega os ficheiros, por isso o link está sempre disponível e não adormece.
+
+- Arranca com os três modelos treinados com os hiperparâmetros por omissão (`demo/pretreinar.py`). Foram treinados com as mesmas versões do scikit-learn, NumPy, pandas e joblib que o Pyodide usa (`demo/requirements-pretreino.txt`), para os ficheiros `.joblib` abrirem no browser.
+- Treinar também funciona, mas em primeiro plano (o Pyodide não tem *threads*, por isso não há botão para interromper) e com um só processador: a regressão logística demora uns segundos e a Random Forest cerca de meio minuto. O que se treina perde-se ao recarregar a página.
+- O descarregamento do Kaggle só funciona localmente; a demonstração usa os dados diários já processados.
+- `demo/montar-site.sh` junta os ficheiros e o workflow `demo-pages.yml` publica-os no GitHub Pages sempre que a aplicação, os dados ou a demonstração mudam.
 
 | Treino | Previsão |
 |---|---|
@@ -98,6 +109,7 @@ src/
   data_pipeline.py  CSV ao minuto → CSV diários
   train_models.py   treino completo com grid search e escrita de models/metrics.json
 app/app.py          aplicação Streamlit
+demo/               demonstração web (página Stlite, modelos pré-treinados e script de montagem)
 data/               dados diários processados
 models/             registry.json (versões treinadas na aplicação) e metrics.json
 tests/              testes pytest
@@ -111,7 +123,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-Os 18 testes verificam, entre outras coisas, que **as features não usam informação do futuro** (alterar os preços a partir de um dia não pode mudar as features dos dias anteriores), que o alvo está correto, que a divisão treino/teste respeita a ordem temporal, que as três famílias treinam e produzem métricas, que o AutoML pode ser interrompido e que o registo de versões funciona. Há ainda um teste de fumo que arranca a aplicação Streamlit sem browser.
+Os 20 testes verificam, entre outras coisas, que **as features não usam informação do futuro** (alterar os preços a partir de um dia não pode mudar as features dos dias anteriores), que o alvo está correto, que a divisão treino/teste respeita a ordem temporal, que as três famílias treinam e produzem métricas, que o AutoML pode ser interrompido e que o registo de versões funciona. Há ainda um teste de fumo que arranca a aplicação Streamlit sem browser e dois que confirmam que os ficheiros da demonstração web existem e são coerentes.
 
 ## O que mudou na revisão de 2026
 
@@ -121,6 +133,7 @@ Os 18 testes verificam, entre outras coisas, que **as features não usam informa
 - Os scripts de linha de comandos tinham caminhos absolutos de outra máquina e repetiam o código de `features.py` e `modeling.py`; agora usam caminhos relativos ao projeto e os mesmos módulos que a aplicação.
 - O ROC-AUC deixou de rebentar quando um conjunto só tem uma classe, e os identificadores das versões deixaram de poder repetir-se.
 - Acrescentados testes automáticos, integração contínua e este README.
+- Acrescentada a demonstração web no GitHub Pages, sem servidor.
 
 ## Autor
 
