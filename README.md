@@ -6,7 +6,7 @@ Trabalho prático de **Inteligência Artificial** (3.º ano da Licenciatura em E
 
 [![CI](https://github.com/fmpoliveira05-jpg/btc-direction-predictor/actions/workflows/ci.yml/badge.svg)](https://github.com/fmpoliveira05-jpg/btc-direction-predictor/actions/workflows/ci.yml)
 
-**Experimentar sem instalar nada:** [demonstração web](https://fmpoliveira05-jpg.github.io/btc-direction-predictor/). A aplicação corre toda no browser (a primeira abertura demora 20 a 40 segundos a carregar o Python) e já traz os três modelos treinados.
+**Experimentar sem instalar nada:** [demonstração web](https://fmpoliveira05-jpg.github.io/btc-direction-predictor/). A aplicação corre toda no browser (a primeira abertura demora 20 a 40 segundos a carregar o Python), já traz os três modelos treinados e os dados são atualizados todos os dias.
 
 ## O enunciado
 
@@ -19,7 +19,7 @@ Escolher um *dataset* de um problema supervisionado, analisá-lo e prepará-lo, 
 - **Features (25):** retornos e retornos desfasados, rácios preço/média móvel, volatilidade, RSI, MACD, posição nas bandas de Bollinger, amplitude diária, variação de volume e dia da semana. Todas usam apenas informação disponível até ao fim do dia.
 - **Alvo:** `1` se o fecho de amanhã for superior ao de hoje, `0` caso contrário (52,9 % de dias "sobe" no treino, por isso as classes estão praticamente equilibradas).
 
-Os CSV diários já processados estão em `data/`; o ficheiro ao minuto não está incluído por causa do tamanho, mas a aplicação descarrega-o do Kaggle se for preciso.
+Os CSV diários já processados estão em `data/`; o ficheiro ao minuto não está incluído por causa do tamanho. O *dataset* do Kaggle é atualizado todos os dias e é público: a aplicação (separador Data) ou `python src/data_pipeline.py --kaggle` descarregam a versão mais recente sem conta. O último dia do ficheiro ainda está incompleto quando o Kaggle o atualiza, por isso é descartado: uma vela parcial daria um fecho e um volume errados.
 
 ## Metodologia
 
@@ -70,7 +70,7 @@ streamlit run app/app.py
 
 A interface está em inglês e organiza-se em cinco separadores, que devem ser usados por esta ordem:
 
-1. **Data** – descarregar a versão mais recente do *dataset* do Kaggle (o token é pedido num campo protegido e nunca é gravado) ou reprocessar um CSV local; ver o processo de preparação; escolher os grupos de features; acrescentar novas linhas de dados.
+1. **Data** – descarregar a versão mais recente do *dataset* do Kaggle (sem conta; o token só é pedido se o Kaggle exigir autenticação e nunca é gravado) ou reprocessar um CSV local; ver o processo de preparação; escolher os grupos de features; acrescentar novas linhas de dados.
 2. **Training** – escolher a família e ajustar os hiperparâmetros, ou usar o **AutoML** (pesquisa aleatória avaliada por validação cruzada). Mostra a curva de aprendizagem, o tempo decorrido e permite interromper o treino a meio. Cada treino fica guardado como uma nova versão.
 3. **Prediction** – escolher uma das versões treinadas e obter a direção prevista para o dia seguinte e a probabilidade de subida, a partir do último dia disponível ou de uma data histórica.
 4. **Comparison** – características das três famílias antes do treino e, depois, uma tabela com hiperparâmetros e métricas de todas as versões, com o melhor e o pior valor de cada linha assinalados.
@@ -85,7 +85,7 @@ A [demonstração web](https://fmpoliveira05-jpg.github.io/btc-direction-predict
 - Arranca com os três modelos treinados com os hiperparâmetros por omissão (`demo/pretreinar.py`). Foram treinados com as mesmas versões do scikit-learn, NumPy, pandas e joblib que o Pyodide usa (`demo/requirements-pretreino.txt`), para os ficheiros `.joblib` abrirem no browser.
 - Treinar também funciona, mas em primeiro plano (o Pyodide não tem *threads*, por isso não há botão para interromper) e com um só processador: a regressão logística demora uns segundos e a Random Forest cerca de meio minuto. O que se treina perde-se ao recarregar a página.
 - O descarregamento do Kaggle só funciona localmente; a demonstração usa os dados diários já processados.
-- `demo/montar-site.sh` junta os ficheiros e o workflow `demo-pages.yml` publica-os no GitHub Pages sempre que a aplicação, os dados ou a demonstração mudam.
+- Todos os dias, depois da atualização do Kaggle, o workflow `demo-pages.yml` descarrega os dados mais recentes, volta a treinar os três modelos e republica o site (`demo/montar-site.sh` junta os ficheiros). Não faz commits: os dados novos vão só para o site. Se o Kaggle falhar, publica com os dados do repositório. O segredo `KAGGLE_API_TOKEN` é opcional e só é preciso se o Kaggle passar a pedir autenticação.
 
 | Treino | Previsão |
 |---|---|
@@ -96,7 +96,8 @@ A [demonstração web](https://fmpoliveira05-jpg.github.io/btc-direction-predict
 ### Linha de comandos
 
 ```bash
-python src/data_pipeline.py [caminho/btcusd_1-min_data.csv]   # gera os CSV diários
+python src/data_pipeline.py --kaggle                           # descarrega a versão mais recente e gera os CSV diários
+python src/data_pipeline.py [caminho/btcusd_1-min_data.csv]   # o mesmo, a partir de um ficheiro já descarregado
 python src/train_models.py                                     # treina e avalia os três modelos
 ```
 
@@ -123,7 +124,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-Os 20 testes verificam, entre outras coisas, que **as features não usam informação do futuro** (alterar os preços a partir de um dia não pode mudar as features dos dias anteriores), que o alvo está correto, que a divisão treino/teste respeita a ordem temporal, que as três famílias treinam e produzem métricas, que o AutoML pode ser interrompido e que o registo de versões funciona. Há ainda um teste de fumo que arranca a aplicação Streamlit sem browser e dois que confirmam que os ficheiros da demonstração web existem e são coerentes.
+Os 22 testes verificam, entre outras coisas, que **as features não usam informação do futuro** (alterar os preços a partir de um dia não pode mudar as features dos dias anteriores), que o alvo está correto, que a vela incompleta do último dia é descartada, que a divisão treino/teste respeita a ordem temporal, que as três famílias treinam e produzem métricas, que o AutoML pode ser interrompido e que o registo de versões funciona. Há ainda um teste de fumo que arranca a aplicação Streamlit sem browser e dois que confirmam que os ficheiros da demonstração web existem e são coerentes.
 
 ## O que mudou na revisão de 2026
 
@@ -133,7 +134,8 @@ Os 20 testes verificam, entre outras coisas, que **as features não usam informa
 - Os scripts de linha de comandos tinham caminhos absolutos de outra máquina e repetiam o código de `features.py` e `modeling.py`; agora usam caminhos relativos ao projeto e os mesmos módulos que a aplicação.
 - O ROC-AUC deixou de rebentar quando um conjunto só tem uma classe, e os identificadores das versões deixaram de poder repetir-se.
 - Acrescentados testes automáticos, integração contínua e este README.
-- Acrescentada a demonstração web no GitHub Pages, sem servidor.
+- Acrescentada a demonstração web no GitHub Pages, sem servidor, com os dados atualizados todos os dias.
+- O último dia do ficheiro do Kaggle, ainda incompleto, deixou de entrar nos dados; o token do Kaggle passou a ser opcional; a aplicação e a linha de comandos passaram a usar o mesmo código para ler o ficheiro ao minuto.
 
 ## Autor
 

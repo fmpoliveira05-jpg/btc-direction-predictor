@@ -2,11 +2,20 @@ name: Demonstração web (GitHub Pages)
 
 # Publica a aplicação Streamlit a correr no browser (Stlite + Pyodide) em
 # https://<utilizador>.github.io/btc-direction-predictor/. Não há servidor: o link não adormece.
-# Requer o GitHub Pages ativo com "Source: GitHub Actions".
+#
+# Todos os dias, depois da atualização do dataset no Kaggle (por volta das 02:30 UTC), descarrega
+# a versão mais recente, refaz os CSV diários e volta a treinar os três modelos da demonstração,
+# para a previsão partir sempre do último dia completo. Não faz commits: os dados novos só vão
+# para o site. Se o Kaggle falhar, publica com os dados que estão no repositório.
+#
+# Requer o GitHub Pages ativo com "Source: GitHub Actions". O segredo KAGGLE_API_TOKEN é
+# opcional (o dataset é público); só é preciso se o Kaggle passar a pedir autenticação.
 on:
   push:
     branches: [main]
     paths: ["app/**", "src/**", "data/**", "demo/**", ".github/workflows/demo-pages.yml"]
+  schedule:
+    - cron: "17 5 * * *"
   workflow_dispatch:
 
 permissions:
@@ -26,6 +35,32 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+
+      # As mesmas versões do Pyodide 0.29.3, para os .joblib abrirem no browser.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Instalar dependências
+        run: pip install -r demo/requirements-pretreino.txt kagglehub
+
+      - name: Descarregar os dados mais recentes do Kaggle
+        id: dados
+        continue-on-error: true
+        env:
+          TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then export KAGGLE_API_TOKEN="$TOKEN"; fi
+          python src/data_pipeline.py --kaggle
+          tail -n 1 data/btc_daily_ohlcv.csv
+
+      - name: Treinar os modelos da demonstração
+        if: steps.dados.outcome == 'success'
+        run: python demo/pretreinar.py
+
+      - name: Aviso (dados do repositório)
+        if: steps.dados.outcome != 'success'
+        run: echo "::warning::Não foi possível descarregar do Kaggle; a demonstração usa os dados do repositório."
+
       - name: Montar o site
         run: demo/montar-site.sh _site
       - uses: actions/configure-pages@v5
