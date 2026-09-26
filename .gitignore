@@ -16,3 +16,6 @@ app/history.csv
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Site da demonstração (gerado por demo/montar-site.sh)
+_site/

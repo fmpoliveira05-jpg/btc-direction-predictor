@@ -11,8 +11,10 @@ End-to-end workflow, entirely from the interface:
                    training (hyperparameters + metrics, with up/down indicators)
   5. [History]     review predictions made and the realised hit rate
 
-Only models trained by the user are usable for prediction (no pre-trained models
-are shipped). Each training run is saved as a new, independently loadable version.
+Locally, only models trained by the user are usable for prediction (no pre-trained
+models are shipped). The web demo (demo/index.html) starts with the three models
+pre-trained by demo/pretreinar.py. Each training run is saved as a new, independently
+loadable version.
 """
 import os, sys, time, threading
 from datetime import datetime
@@ -39,6 +41,9 @@ RAW_CSV = os.path.join(DATA_DIR, "btcusd_1-min_data.csv")
 HISTORY_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "history.csv")
 KAGGLE_DS = "mczielinski/bitcoin-historical-data"
 LABELS = {1: "UP", 0: "DOWN"}
+# True in the web demo (Stlite: Streamlit running in the browser on Pyodide/WebAssembly).
+# There are no threads there, so training runs in the foreground, and Kaggle cannot be reached.
+IN_BROWSER = sys.platform == "emscripten"
 
 st.set_page_config(page_title="BTC Direction Predictor", layout="wide")
 
@@ -224,6 +229,12 @@ def _worker_automl(shared, stop, feats, families, n_cfg, test_frac, cols):
 def _launch(target, *args):
     shared = {"status": "running", "progress": 0.0, "stage": "Starting"}
     stop = threading.Event()
+    if IN_BROWSER:
+        # Pyodide has no threads: train in the foreground and show the result straight away.
+        with st.spinner("Training in the browser (the Random Forest can take up to a minute)..."):
+            target(shared, stop, *args)
+        _consume_job({"shared": shared}, args[0])
+        st.rerun()
     th = threading.Thread(target=target, args=(shared, stop) + args, daemon=True)
     th.start()
     st.session_state["job"] = {"thread": th, "shared": shared, "stop": stop, "start": time.time()}
@@ -445,6 +456,10 @@ if data_ready():
 else:
     st.sidebar.warning("No dataset. Use the Data tab.")
 st.sidebar.metric("Trained models", "%d" % len(list_runs(MODELS_DIR)))
+if IN_BROWSER:
+    st.sidebar.info("Web demo: everything runs in your browser. It starts with the three models "
+                    "pre-trained with the default hyperparameters; models you train here are "
+                    "lost when the page is reloaded.")
 
 tab_data, tab_train, tab_pred, tab_cmp, tab_hist = st.tabs(
     ["Data", "Training", "Prediction", "Comparison", "History"])
@@ -462,47 +477,51 @@ with tab_data:
     else:
         st.warning("No processed dataset yet. Download it below.")
 
-    with st.expander("How to get a Kaggle API token"):
-        st.markdown(
-            "1. Go to **kaggle.com**, profile picture, **Settings**.\n"
-            "2. **API** section, **Create New Token** (format `KGAT_...`).\n"
-            "3. Paste the token below. It is never written to disk.")
+    if IN_BROWSER:
+        st.info("In the web demo the processed daily dataset is already loaded. Downloading from "
+                "Kaggle only works when the app runs locally (`streamlit run app/app.py`).")
+    else:
+        with st.expander("How to get a Kaggle API token"):
+            st.markdown(
+                "1. Go to **kaggle.com**, profile picture, **Settings**.\n"
+                "2. **API** section, **Create New Token** (format `KGAT_...`).\n"
+                "3. Paste the token below. It is never written to disk.")
 
-    st.subheader("Download via Kaggle (kagglehub)")
-    token = st.text_input("KAGGLE_API_TOKEN", type="password", placeholder="KGAT_...")
-    st.caption("The token is used only in memory and is never stored.")
-    if st.button("Download latest dataset version", type="primary"):
-        if not token.strip():
-            st.error("Provide the Kaggle API token first.")
-        else:
-            try:
-                with st.spinner("Downloading from Kaggle and processing (may take 1-2 min)..."):
-                    os.environ["KAGGLE_API_TOKEN"] = token.strip()
-                    import kagglehub
-                    path = kagglehub.dataset_download(KAGGLE_DS)
-                    csv = find_minute_csv(path)
-                    if not csv:
-                        raise FileNotFoundError("CSV not found in the download.")
-                    nd, nf = process_raw_to_data(csv)
-                    st.cache_data.clear()
-                st.success("Done: %d days / %d samples." % (nd, nf))
-            except ImportError:
-                st.error("kagglehub is missing. Install it with: pip install kagglehub")
-            except Exception as e:
-                st.error("Download failed: %s" % e)
-
-    with st.expander("Reprocess a local file instead (offline)"):
-        if st.button("Reprocess local dataset"):
-            if os.path.exists(RAW_CSV):
-                try:
-                    with st.spinner("Processing local file..."):
-                        nd, nf = process_raw_to_data(RAW_CSV)
-                        st.cache_data.clear()
-                    st.success("Reprocessed: %d days / %d samples." % (nd, nf))
-                except Exception as e:
-                    st.error("Failed: %s" % e)
+        st.subheader("Download via Kaggle (kagglehub)")
+        token = st.text_input("KAGGLE_API_TOKEN", type="password", placeholder="KGAT_...")
+        st.caption("The token is used only in memory and is never stored.")
+        if st.button("Download latest dataset version", type="primary"):
+            if not token.strip():
+                st.error("Provide the Kaggle API token first.")
             else:
-                st.error("File not found: %s" % RAW_CSV)
+                try:
+                    with st.spinner("Downloading from Kaggle and processing (may take 1-2 min)..."):
+                        os.environ["KAGGLE_API_TOKEN"] = token.strip()
+                        import kagglehub
+                        path = kagglehub.dataset_download(KAGGLE_DS)
+                        csv = find_minute_csv(path)
+                        if not csv:
+                            raise FileNotFoundError("CSV not found in the download.")
+                        nd, nf = process_raw_to_data(csv)
+                        st.cache_data.clear()
+                    st.success("Done: %d days / %d samples." % (nd, nf))
+                except ImportError:
+                    st.error("kagglehub is missing. Install it with: pip install kagglehub")
+                except Exception as e:
+                    st.error("Download failed: %s" % e)
+
+        with st.expander("Reprocess a local file instead (offline)"):
+            if st.button("Reprocess local dataset"):
+                if os.path.exists(RAW_CSV):
+                    try:
+                        with st.spinner("Processing local file..."):
+                            nd, nf = process_raw_to_data(RAW_CSV)
+                            st.cache_data.clear()
+                        st.success("Reprocessed: %d days / %d samples." % (nd, nf))
+                    except Exception as e:
+                        st.error("Failed: %s" % e)
+                else:
+                    st.error("File not found: %s" % RAW_CSV)
 
     # ---- Data processing & feature engineering ----
     if data_ready():

@@ -1,0 +1,5 @@
+# Versões do Pyodide 0.29.3 (usado pelo @stlite/browser 1.9.2), para os .joblib abrirem no browser.
+scikit-learn==1.7.0
+numpy==2.2.5
+pandas==2.3.3
+joblib==1.4.2

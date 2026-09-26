@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BTC Direction Predictor – web demo</title>
+    <meta name="description" content="Streamlit app that trains and compares models to predict the daily direction of Bitcoin, running entirely in the browser." />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/browser@1.9.2/build/stlite.css" />
+    <style>
+      #aviso { font-family: system-ui, sans-serif; max-width: 36rem; margin: 20vh auto; padding: 0 1rem; text-align: center; color: #1f2d3d; }
+      #aviso p { color: #555; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div id="aviso">
+        <h1>BTC Direction Predictor</h1>
+        <p>Loading Python in your browser (Pyodide + Streamlit). The first visit takes 20–40 seconds; later visits are faster because the files stay in the browser cache.</p>
+      </div>
+    </div>
+    <script type="module">
+      import { mount } from "https://cdn.jsdelivr.net/npm/@stlite/browser@1.9.2/build/stlite.js";
+
+      // Everything is served by GitHub Pages next to this file (see .github/workflows/demo-pages.yml).
+      const ficheiros = [
+        "app/app.py",
+        "src/features.py",
+        "src/modeling.py",
+        "data/btc_daily_ohlcv.csv",
+        "data/btc_daily_features.csv",
+      ];
+      const files = Object.fromEntries(ficheiros.map((f) => [f, { url: f }]));
+      // Pre-trained models (demo/pretreinar.py), mounted where the app keeps its models.
+      for (const f of ["registry.json", "run_0001.joblib", "run_0002.joblib", "run_0003.joblib"]) {
+        files["models/" + f] = { url: "modelos/" + f };
+      }
+
+      mount(
+        {
+          requirements: ["pandas", "numpy", "scikit-learn", "matplotlib", "joblib"],
+          entrypoint: "app/app.py",
+          files,
+          streamlitConfig: { "client.toolbarMode": "viewer" },
+        },
+        document.getElementById("root"),
+      );
+    </script>
+  </body>
+</html>

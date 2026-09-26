@@ -1,0 +1,36 @@
+name: Demonstração web (GitHub Pages)
+
+# Publica a aplicação Streamlit a correr no browser (Stlite + Pyodide) em
+# https://<utilizador>.github.io/btc-direction-predictor/. Não há servidor: o link não adormece.
+# Requer o GitHub Pages ativo com "Source: GitHub Actions".
+on:
+  push:
+    branches: [main]
+    paths: ["app/**", "src/**", "data/**", "demo/**", ".github/workflows/demo-pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Montar o site
+        run: demo/montar-site.sh _site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
