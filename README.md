@@ -1,144 +1,146 @@
 # BTC Direction Predictor
 
-Aplicação de *machine learning* que tenta prever se o preço do Bitcoin fecha amanhã acima ou abaixo de hoje. Compara três famílias de modelos do scikit-learn e disponibiliza tudo numa aplicação Streamlit: preparação dos dados, treino (manual ou AutoML), previsão, comparação de modelos e histórico de previsões.
+A machine learning application that attempts to predict whether Bitcoin will close higher or lower tomorrow than today. It compares three scikit-learn model families in a Streamlit interface covering data preparation, manual training and AutoML, predictions, model comparison, and prediction history.
 
-Trabalho prático de **Inteligência Artificial** (3.º ano da Licenciatura em Engenharia Informática, ESTG – Politécnico do Porto, época especial de 2025/26), revisto em 2026.
+An **Artificial Intelligence** assignment in the third year of the BSc in Computer Engineering at ESTG – Polytechnic of Porto (2025/26 special assessment period), reviewed in 2026.
 
 [![CI](https://github.com/fmpoliveira05-jpg/btc-direction-predictor/actions/workflows/ci.yml/badge.svg)](https://github.com/fmpoliveira05-jpg/btc-direction-predictor/actions/workflows/ci.yml)
 
-**Experimentar sem instalar nada:** [demonstração web](https://fmpoliveira05-jpg.github.io/btc-direction-predictor/). A aplicação corre toda no browser (a primeira abertura demora 20 a 40 segundos a carregar o Python), já traz os três modelos treinados e os dados são atualizados todos os dias.
+**Try it without installing anything:** [browser demo](https://fmpoliveira05-jpg.github.io/btc-direction-predictor/). Python runs entirely in the browser; first loading takes approximately 20–40 seconds. The demo includes three trained models and a daily data-update workflow.
 
-## O enunciado
+## Assignment
 
-Escolher um *dataset* de um problema supervisionado, analisá-lo e prepará-lo, treinar pelo menos três modelos, avaliá-los de forma fundamentada e construir uma aplicação que permita a um utilizador obter previsões. Eram valorizados: escolher o modelo, ver as métricas de cada um, consultar o histórico de previsões e acrescentar dados para treinar uma nova versão. Todos estes extras estão implementados.
+Select a supervised-learning dataset, analyse and prepare it, train at least three models, justify their evaluation, and build a prediction application. Optional features included model selection, model metrics, prediction history, and adding data to train another version. All are implemented.
 
-## Os dados e o problema
+## Data and prediction target
 
-- **Origem:** [Bitcoin Historical Data](https://www.kaggle.com/datasets/mczielinski/bitcoin-historical-data) (Kaggle), com preços ao minuto desde 2012 (~7,6 milhões de linhas, ~386 MB).
-- **Preparação:** reamostragem para velas diárias, remoção do período anterior a 2015 (pouca liquidez, preços "congelados") e preenchimento dos dias em falta.
-- **Features (25):** retornos e retornos desfasados, rácios preço/média móvel, volatilidade, RSI, MACD, posição nas bandas de Bollinger, amplitude diária, variação de volume e dia da semana. Todas usam apenas informação disponível até ao fim do dia.
-- **Alvo:** `1` se o fecho de amanhã for superior ao de hoje, `0` caso contrário (52,8 % de dias "sobe" no treino, por isso as classes estão praticamente equilibradas).
+- **Source:** [Bitcoin Historical Data](https://www.kaggle.com/datasets/mczielinski/bitcoin-historical-data), with minute-level prices since 2012: approximately 7.6 million rows and 386 MB.
+- **Preparation:** resample to daily OHLCV candles, remove data before 2015 (low liquidity and stale prices), and fill missing days.
+- **25 features:** current and lagged returns, price/moving-average ratios, volatility, RSI, MACD, Bollinger-band position, daily range, volume change, and weekday. Features use only information available by the end of the day.
+- **Target:** `1` if tomorrow's close exceeds today's close, otherwise `0`. Up days represent 52.8% of the training set, so classes are nearly balanced.
 
-Os CSV diários já processados estão em `data/`; o ficheiro ao minuto não está incluído por causa do tamanho. O *dataset* do Kaggle é atualizado todos os dias e é público: a aplicação (separador Data) ou `python src/data_pipeline.py --kaggle` descarregam a versão mais recente sem conta. O último dia do ficheiro ainda está incompleto quando o Kaggle o atualiza, por isso é descartado: uma vela parcial daria um fecho e um volume errados.
+Processed daily CSVs are included in `data/`; the large minute-level file is excluded. The Data tab or `python src/data_pipeline.py --kaggle` downloads the public dataset, normally without an account. The last day is discarded because it is still incomplete when the source is updated; keeping it would distort closing price and volume.
 
-## Metodologia
+## Methodology
 
-Em séries temporais financeiras é muito fácil obter resultados enganadoramente bons. Por isso:
+Financial time series can produce misleadingly good results, so the evaluation uses:
 
-1. **Divisão temporal**: treino de 2015-02 a 2024-05 (3388 dias) e teste de 2024-05 a 2026-09 (848 dias), com os dados até 25/09/2026. Nunca há baralhamento.
-2. **Validação cruzada *walk-forward*** (`TimeSeriesSplit`, 5 partições, com um dia de intervalo entre treino e validação, porque o alvo de um dia depende do fecho do dia seguinte).
-3. **Pipelines do scikit-learn**: a normalização é ajustada apenas nos dados de treino de cada partição.
-4. **Seleção pelo treino, avaliação pelo teste**: os hiperparâmetros e o melhor modelo são escolhidos pela validação cruzada; o conjunto de teste só é usado uma vez, no fim.
-5. **Baselines**: classe maioritária e persistência ("amanhã faz o mesmo que hoje").
-6. **Backtest simples**: comprar quando o modelo prevê subida e ficar de fora caso contrário, comparado com *buy & hold*.
+1. **Chronological split:** February 2015–May 2024 for training (3,388 days), May 2024–September 2026 for testing (848 days), using data through 25 September 2026. No shuffling.
+2. **Walk-forward cross-validation:** five `TimeSeriesSplit` folds with a one-day gap, because each day's target depends on the next day's close.
+3. **scikit-learn pipelines:** scaling is fitted only to the training portion of each fold.
+4. **Training-based selection:** choose hyperparameters and the best model through cross-validation, then evaluate on the held-out test set.
+5. **Baselines:** majority class and persistence (tomorrow follows today's direction).
+6. **Simple backtest:** buy when the model predicts an increase and remain out otherwise; compare with buy-and-hold.
 
-| Família | Modelo | Papel |
+| Family | Model | Role |
 |---|---|---|
-| Leve | Regressão logística | *baseline* linear e interpretável |
-| Intermédia | Random Forest | não linear, robusto a ruído |
-| Pesada | HistGradientBoosting | o mais expressivo dos três |
+| Lightweight | Logistic Regression | Interpretable linear baseline |
+| Intermediate | Random Forest | Non-linear model robust to noise |
+| Heavier | HistGradientBoosting | Most expressive of the three |
 
-## Resultados
+## Results
 
-Resultados de `python src/train_models.py` (afinação com *grid search*), com os dados até 25/09/2026:
+Recorded results from `python src/train_models.py` with grid-search tuning and data through **25 September 2026**:
 
-| Modelo | ROC-AUC (validação cruzada) | ROC-AUC (teste) | Exatidão (teste) | Backtest (teste) |
+| Model | CV ROC-AUC | Test ROC-AUC | Test accuracy | Test backtest |
 |---|---|---|---|---|
-| Classe maioritária | – | 0,500 | 49,9 % | – |
-| Persistência | – | 0,499 | 49,9 % | – |
-| Regressão logística | 0,537 | 0,502 | 50,7 % | +16,0 % |
-| Random Forest | **0,543** | 0,492 | 50,0 % | +26,8 % |
-| HistGradientBoosting | 0,539 | 0,498 | 50,4 % | +20,4 % |
-| *Buy & hold* | | | | +23,5 % |
+| Majority class | — | 0.500 | 49.9% | — |
+| Persistence | — | 0.499 | 49.9% | — |
+| Logistic Regression | 0.537 | 0.502 | 50.7% | +16.0% |
+| Random Forest | **0.543** | 0.492 | 50.0% | +26.8% |
+| HistGradientBoosting | 0.539 | 0.498 | 50.4% | +20.4% |
+| Buy-and-hold | | | | +23.5% |
 
-**A leitura honesta destes números é que nenhum modelo prevê a direção diária do Bitcoin de forma útil.** Os três ficam ao nível do acaso no conjunto de teste (ROC-AUC entre 0,49 e 0,50), e o pequeno ganho visto na validação cruzada (0,53–0,54) não se mantém no período mais recente, o que é consistente com mercados muito eficientes e com uma relação entre features e alvo que muda ao longo do tempo. Nenhuma estratégia bate o *buy & hold* de forma convincente: a da Random Forest fica ligeiramente acima, mas com um ROC-AUC abaixo de 0,5, o que aponta para sorte na temporização e não para capacidade de previsão.
+**None of these models provides useful daily Bitcoin direction predictions on this test set.** Test ROC-AUC values are approximately 0.49–0.50, close to chance. The small cross-validation advantage (0.53–0.54) does not persist in the more recent period. This is consistent with changing feature/target relationships and a difficult prediction problem; it does not establish the cause.
 
-A instabilidade vê-se bem ao comparar com a versão anterior destes resultados, com os dados até junho de 2026: nessa altura o backtest do HistGradientBoosting dava +34,2 % contra −11,7 % do *buy & hold*. Três meses de dados depois, essa vantagem desapareceu.
+No strategy convincingly outperforms buy-and-hold. Random Forest is slightly ahead in this backtest but has ROC-AUC below 0.5, so that return alone is not evidence of predictive ability.
 
-Mais do que "acertar no Bitcoin", o objetivo do projeto é demonstrar um processo de avaliação que não se engana a si próprio: baselines, validação temporal, seleção sem tocar no teste e interpretação crítica dos resultados.
+The results are unstable: using data through June 2026, HistGradientBoosting's backtest returned +34.2% versus −11.7% for buy-and-hold. Three months later, that apparent advantage disappeared.
 
-| Comparação dos modelos | Backtest no período de teste |
+The project's purpose is to demonstrate careful evaluation: baselines, temporal validation, model selection without using test results, and a critical interpretation of outcomes.
+
+| Model comparison | Test-period backtest |
 |---|---|
-| ![Comparação](docs/figuras/fig_compare.png) | ![Backtest](docs/figuras/fig5_backtest.png) |
+| ![Model comparison](docs/figuras/fig_compare.png) | ![Backtest](docs/figuras/fig5_backtest.png) |
 
-*(Gráficos produzidos no relatório original, com os hiperparâmetros por omissão e um período de teste anterior; os números da tabela acima são os atuais.)*
+*These figures come from the original report, with default hyperparameters and an earlier test period. The dated table above contains the later recorded results.*
 
-## A aplicação
+## Application
 
 ```bash
 pip install -r requirements.txt
 streamlit run app/app.py
 ```
 
-A interface está em inglês e organiza-se em cinco separadores, que devem ser usados por esta ordem:
+The English-language interface has five tabs, intended to be used in this order:
 
-1. **Data** – descarregar a versão mais recente do *dataset* do Kaggle (sem conta; o token só é pedido se o Kaggle exigir autenticação e nunca é gravado) ou reprocessar um CSV local; ver o processo de preparação; escolher os grupos de features; acrescentar novas linhas de dados.
-2. **Training** – escolher a família e ajustar os hiperparâmetros, ou usar o **AutoML** (pesquisa aleatória avaliada por validação cruzada). Mostra a curva de aprendizagem, o tempo decorrido e permite interromper o treino a meio. Cada treino fica guardado como uma nova versão.
-3. **Prediction** – escolher uma das versões treinadas e obter a direção prevista para o dia seguinte e a probabilidade de subida, a partir do último dia disponível ou de uma data histórica.
-4. **Comparison** – características das três famílias antes do treino e, depois, uma tabela com hiperparâmetros e métricas de todas as versões, com o melhor e o pior valor de cada linha assinalados.
-5. **History** – previsões feitas, com a indicação de acerto quando o resultado real já é conhecido e a taxa de acerto acumulada.
+1. **Data:** download the latest Kaggle dataset or process a local CSV; inspect preparation; select feature groups; add data rows. A token is requested only if Kaggle requires authentication and is never saved.
+2. **Training:** select a family and hyperparameters, or run **AutoML** (random search evaluated through cross-validation). Shows learning curves and elapsed time, supports stopping training locally, and saves each run as a new version.
+3. **Prediction:** choose a trained version and obtain next-day direction and probability of an increase, using the latest available day or a historical date.
+4. **Comparison:** compare model families before training and hyperparameters/metrics of saved runs afterwards, with best and worst values highlighted.
+5. **History:** review predictions, whether they were correct once actual results are known, and cumulative accuracy.
 
-Localmente, a aplicação não traz modelos pré-treinados: cada utilizador treina os seus, o que também evita problemas de compatibilidade entre versões do scikit-learn.
+The local application does not include pre-trained models. Users train their own, also avoiding scikit-learn version incompatibilities.
 
-### Demonstração no browser
+### Browser demo
 
-A [demonstração web](https://fmpoliveira05-jpg.github.io/btc-direction-predictor/) é a mesma aplicação a correr no browser com o [Stlite](https://github.com/whitphx/stlite) (Streamlit sobre Pyodide, ou seja, Python compilado para WebAssembly). Não há servidor: o GitHub Pages só entrega os ficheiros, por isso o link está sempre disponível e não adormece.
+The [demo](https://fmpoliveira05-jpg.github.io/btc-direction-predictor/) runs the same application through [Stlite](https://github.com/whitphx/stlite): Streamlit on Pyodide, which compiles Python to WebAssembly. GitHub Pages serves static files; no application server is needed.
 
-- Arranca com os três modelos treinados com os hiperparâmetros por omissão (`demo/pretreinar.py`). Foram treinados com as mesmas versões do scikit-learn, NumPy, pandas e joblib que o Pyodide usa (`demo/requirements-pretreino.txt`), para os ficheiros `.joblib` abrirem no browser.
-- Treinar também funciona, mas em primeiro plano (o Pyodide não tem *threads*, por isso não há botão para interromper) e com um só processador: a regressão logística demora uns segundos e a Random Forest cerca de meio minuto. O que se treina perde-se ao recarregar a página.
-- O descarregamento do Kaggle só funciona localmente; a demonstração usa os dados diários já processados.
-- Todos os dias, depois da atualização do Kaggle, o workflow `demo-pages.yml` descarrega os dados mais recentes, volta a treinar os três modelos e republica o site (`demo/montar-site.sh` junta os ficheiros). Não faz commits: os dados novos vão só para o site. Se o Kaggle falhar, publica com os dados do repositório. O segredo `KAGGLE_API_TOKEN` é opcional e só é preciso se o Kaggle passar a pedir autenticação.
+- Includes three models trained with default hyperparameters by `demo/pretreinar.py`. The versions in `demo/requirements-pretreino.txt` match Pyodide's scikit-learn, NumPy, pandas, and joblib so the `.joblib` files can be loaded.
+- Browser training runs in the foreground on one processor, without a stop button. Logistic Regression takes a few seconds; Random Forest approximately half a minute. Reloading loses newly trained models.
+- Kaggle downloads work locally; the browser uses processed daily data.
+- `demo-pages.yml` downloads data, retrains, and republishes daily; `demo/montar-site.sh` assembles the files. Updates go to the site without repository commits. If Kaggle fails, the repository data is used. `KAGGLE_API_TOKEN` is optional unless authentication becomes necessary.
 
-| Treino | Previsão |
+| Training | Prediction |
 |---|---|
-| ![Resultado de um treino com a curva de aprendizagem](docs/screenshots/treino.png) | ![Separador de previsão com o preço dos últimos 180 dias](docs/screenshots/previsao.png) |
+| ![Training result and learning curve](docs/screenshots/treino.png) | ![Prediction tab with the last 180 days of prices](docs/screenshots/previsao.png) |
 
-*Capturas de uma execução de exemplo; os valores mudam com os dados e os hiperparâmetros escolhidos.*
+*Example screenshots; values depend on data and hyperparameters.*
 
-### Linha de comandos
+### Command line
 
 ```bash
-python src/data_pipeline.py --kaggle                           # descarrega a versão mais recente e gera os CSV diários
-python src/data_pipeline.py [caminho/btcusd_1-min_data.csv]   # o mesmo, a partir de um ficheiro já descarregado
-python src/train_models.py                                     # treina e avalia os três modelos
+python src/data_pipeline.py --kaggle                     # Download and generate daily CSVs
+python src/data_pipeline.py path/to/btcusd_1-min_data.csv # Process an existing file
+python src/train_models.py                              # Train and evaluate all three models
 ```
 
-## Estrutura
+## Structure
 
-```
+```text
 src/
-  features.py       preparação dos dados e features (usada pelo pipeline e pela aplicação)
-  modeling.py       treino, avaliação, AutoML, curva de aprendizagem e registo de versões
-  data_pipeline.py  CSV ao minuto → CSV diários
-  train_models.py   treino completo com grid search e escrita de models/metrics.json
-app/app.py          aplicação Streamlit
-demo/               demonstração web (página Stlite, modelos pré-treinados e script de montagem)
-data/               dados diários processados
-models/             registry.json (versões treinadas na aplicação) e metrics.json
-tests/              testes pytest
-docs/figuras/       gráficos usados no relatório
+  features.py       Shared preparation and feature engineering
+  modeling.py       Training, evaluation, AutoML, learning curves, and version registry
+  data_pipeline.py  Minute-level CSV to daily CSVs
+  train_models.py   Grid search and models/metrics.json output
+app/app.py          Streamlit application
+demo/               Stlite page, pre-trained models, and build scripts
+data/               Processed daily data
+models/             registry.json for application runs and metrics.json
+tests/              pytest tests
+docs/figuras/       Report figures
 ```
 
-## Testes
+## Tests
 
 ```bash
 pip install -r requirements-dev.txt
 pytest
 ```
 
-Os 22 testes verificam, entre outras coisas, que **as features não usam informação do futuro** (alterar os preços a partir de um dia não pode mudar as features dos dias anteriores), que o alvo está correto, que a vela incompleta do último dia é descartada, que a divisão treino/teste respeita a ordem temporal, que as três famílias treinam e produzem métricas, que o AutoML pode ser interrompido e que o registo de versões funciona. Há ainda um teste de fumo que arranca a aplicação Streamlit sem browser e dois que confirmam que os ficheiros da demonstração web existem e são coerentes.
+The 22 tests check that **features do not use future information** (changing later prices cannot affect earlier features), the target is correct, the incomplete final candle is discarded, train/test order is chronological, all three families train and produce metrics, AutoML can be stopped, and version registration works. A smoke test starts Streamlit without a browser; two further tests check demo-file existence and consistency.
 
-## O que mudou na revisão de 2026
+## Changes in the 2026 review
 
-- O melhor modelo passou a ser escolhido pela validação cruzada; antes era escolhido pelo resultado no conjunto de teste, o que torna a avaliação final otimista.
-- A validação cruzada passou a ter um dia de intervalo entre treino e validação.
-- A função `automl` usava uma variável que não recebia (`NameError`) e tinha o mesmo código que `automl_stoppable`; passou a reutilizá-la. Foi removida uma função de gravação antiga que já não funcionava.
-- Os scripts de linha de comandos tinham caminhos absolutos de outra máquina e repetiam o código de `features.py` e `modeling.py`; agora usam caminhos relativos ao projeto e os mesmos módulos que a aplicação.
-- O ROC-AUC deixou de rebentar quando um conjunto só tem uma classe, e os identificadores das versões deixaram de poder repetir-se.
-- Acrescentados testes automáticos, integração contínua e este README.
-- Acrescentada a demonstração web no GitHub Pages, sem servidor, com os dados atualizados todos os dias.
-- O último dia do ficheiro do Kaggle, ainda incompleto, deixou de entrar nos dados; o token do Kaggle passou a ser opcional; a aplicação e a linha de comandos passaram a usar o mesmo código para ler o ficheiro ao minuto.
+- Best-model selection moved from test-set results to cross-validation, avoiding an optimistic final evaluation.
+- Added a one-day train/validation gap.
+- Fixed `automl` referencing an unavailable variable and consolidated it with `automl_stoppable`; removed an obsolete save function.
+- Replaced machine-specific absolute paths and duplicated CLI logic with project-relative paths and shared modules.
+- Handled ROC-AUC for single-class subsets and prevented duplicate run IDs.
+- Added automated tests, CI, and this README.
+- Added the serverless GitHub Pages demo with daily updates.
+- Excluded the incomplete final Kaggle day, made the token optional, and shared minute-file reading between the CLI and application.
 
-## Autor
+## Author
 
-**Francisco Miguel Pereira Oliveira** – [GitHub](https://github.com/fmpoliveira05-jpg)
+**Francisco Miguel Pereira Oliveira** — [GitHub](https://github.com/fmpoliveira05-jpg)
